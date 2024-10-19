@@ -80,7 +80,7 @@ class BibliographyData(object):
         if not isinstance(key, EntryKey):
             key = EntryKey.from_string(key)
         if key in self.entries:
-            report_error(BibliographyDataError('repeated bibliograhpy entry: %s' % key))
+            report_error(BibliographyDataError('repeated bibliography entry: %s' % key))
             return
         entry.collection = self
         entry.key = key
@@ -160,9 +160,9 @@ class Person(object):
     ['Dixit']
     >>> print p.lineage()
     []
-    >>> print unicode(p)
+    >>> print str(p)
     Dixit, Avinash K.
-    >>> p == Person(unicode(p))
+    >>> p == Person(str(p))
     True
     >>> p = Person('Dixit, Jr, Avinash K. ')
     >>> print p.first()
@@ -175,9 +175,9 @@ class Person(object):
     ['Dixit']
     >>> print p.lineage()
     ['Jr']
-    >>> print unicode(p)
+    >>> print str(p)
     Dixit, Jr, Avinash K.
-    >>> p == Person(unicode(p))
+    >>> p == Person(str(p))
     True
 
     >>> p = Person('abc')
@@ -187,9 +187,9 @@ class Person(object):
     >>> print p.first(), p.middle(), p.prelast(), p.last(), p.lineage()
     ['Michail'] ['Markovitch'] [] ['Viktorov'] []
     """
-    valid_roles = ['author', 'editor'] 
-    style1_re = re.compile('^(.+),\s*(.+)$')
-    style2_re = re.compile('^(.+),\s*(.+),\s*(.+)$')
+    valid_roles = ['author', 'editor']
+    style1_re = re.compile('^(.+),\\s*(.+)$')
+    style2_re = re.compile('^(.+),\\s*(.+),\\s*(.+)$')
 
     def __init__(self, string="", first="", middle="", prelast="", last="", lineage=""):
         self._first = []
@@ -278,15 +278,26 @@ class Person(object):
                 and self._lineage == other._lineage
         )
 
-    def __unicode__(self):
+    def __str__(self):
         # von Last, Jr, First
         von_last = ' '.join(self._prelast + self._last)
         jr = ' '.join(self._lineage)
         first = ' '.join(self._first + self._middle)
-        return ', '.join(part for part in (von_last, jr, first) if part)
+
+        if jr or (not first and self._prelast):
+            return ', '.join(part for part in (von_last, jr, first) if part)
+        if first:
+            return first + ' ' + von_last
+        # Yes, there are people who only have 1 "name".
+        # Bibtex parses this as a lastname, although possibly,
+        # this person might only have a firstname and no lastname.
+        return von_last
 
     def __repr__(self):
-        return 'Person({0})'.format(repr(str(self)))
+        return f"Person({str(self)})"
+
+    def __hash__(self):
+        return hash(str(self))
 
     def get_part_as_text(self, type):
         names = getattr(self, '_' + type)
@@ -362,13 +373,13 @@ class EntryKey(object):
         self.confkey = confkey
         """ conference abbreviation for key """
         self.auth = auth
-        """ authors formatted as required in key (last name or first letters or ...) or None if this is a conferece """
+        """ authors formatted as required in key (last name or first letters or ...) or None if this is a conference """
         self.year = int(year) % 100
         """ year of the conference (2 digits) """
         self.dis = dis
         """ disambiguation string ("", "a", "b", "-1", "-2", ...) if same conf, same authors and same year for a paper or if multiple volumes in one conf"""
 
-    _str_regexp = re.compile("^([a-zA-Z]+)(?::([a-zA-Z-_']+))?(\d+)(.*)$")
+    _str_regexp = re.compile("^([a-zA-Z]+)(?::([a-zA-Z-_']+))?(\\d+)(.*)$")
 
     @classmethod
     def from_string(cls, s):
@@ -379,7 +390,7 @@ class EntryKey(object):
         return cls(confkey, year, auth, dis)
 
     def __str__(self):
-        if self.auth == None:
+        if self.auth is None:
             return "{0}{1:02d}{2}".format(self.confkey, self.year, self.dis)
         else:
             return "{0}:{1}{2:02d}{3}".format(self.confkey, self.auth, self.year, self.dis)
@@ -391,9 +402,9 @@ class EntryKey(object):
         return str(self).__hash__()
 
     def __eq__(self, other):
-        return (self.confkey == other.confkey and 
-                self.auth == other.auth and 
-                self.year == other.year and 
+        return (self.confkey == other.confkey and
+                self.auth == other.auth and
+                self.year == other.year and
                 self.dis == other.dis)
 
 class Value(list):
